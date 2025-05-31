@@ -2,14 +2,17 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
+	"minq-backend/internal/shortener"
 )
+
+func GetRoutes(r *gin.Engine) {
+	shortener.SetupRoutes(r)
+}
 
 func main() {
 	r := gin.Default()
-	r.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "Hello, Gin!",
-		})
-	})
-	r.Run() // Listen and serve on 0.0.0.0:8080
+
+	GetRoutes(r)
+
+	r.Run()
 }
