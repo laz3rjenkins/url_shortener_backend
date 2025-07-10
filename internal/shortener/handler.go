@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"os"
 )
 
 func GenerateUrl(c *gin.Context) {
@@ -20,19 +21,41 @@ func GenerateUrl(c *gin.Context) {
 		RedirectCount: 0,
 	}
 
-	if err := SaveShortenUrl(data); err != nil {
+	existedShortenUrl, err := GetUrlByOriginUrl(&data)
+	fmt.Println(existedShortenUrl, err)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	if existedShortenUrl != nil {
+		c.JSON(200, gin.H{
+			"shorten_url":    os.Getenv("APP_URL") + "/" + existedShortenUrl.ShortenURL,
+			"original_url":   existedShortenUrl.OriginalURL,
+			"redirect_count": existedShortenUrl.RedirectCount,
+		})
+		return
+	}
+
+	shortenUrlData, err := SaveShortenUrl(data)
+	if err != nil {
 		return
 	}
 
 	c.JSON(200, gin.H{
-		"url":     c.PostForm("url"),
-		"message": "hello world man",
+		"shorten_url":    os.Getenv("APP_URL") + "/" + shortenUrlData.ShortenURL,
+		"original_url":   shortenUrlData.OriginalURL,
+		"redirect_count": shortenUrlData.RedirectCount,
 	})
 }
 
 func RedirectToUrl(c *gin.Context) {
-	//c.Redirect(302, c.Param("url"))
-	fmt.Println("redirect to url")
+	urlToRedirect, err := GetUrlByShortenUrl(c.Param("url"))
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+	}
+
+	c.Redirect(302, *urlToRedirect)
 }
 
 func GetStatisticByUrl(c *gin.Context) {

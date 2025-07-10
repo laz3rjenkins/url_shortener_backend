@@ -2,7 +2,7 @@ package shortener
 
 import "github.com/gin-gonic/gin"
 
-const prefix = "/shortener"
+const prefix = "/api/shortener"
 
 func SetupRoutes(r *gin.Engine) {
 	r.GET("/test", func(c *gin.Context) {
@@ -12,6 +12,6 @@ func SetupRoutes(r *gin.Engine) {
 	})
 
 	r.POST(prefix+"/generate", GenerateUrl)
-	r.GET(prefix+"/:url", RedirectToUrl)
+	r.GET("/:url", RedirectToUrl)
 	r.GET(prefix+"/:url/stat", GetStatisticByUrl)
 }
