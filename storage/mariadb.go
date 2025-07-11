@@ -7,7 +7,9 @@ import (
 	"os"
 )
 
-func ConnectDB() (*sql.DB, error) {
+var DB *sql.DB
+
+func ConnectDB() error {
 	db_user := os.Getenv("DB_USERNAME")
 	db_name := os.Getenv("DB_NAME")
 	db_password := os.Getenv("DB_PASSWORD")
@@ -16,7 +18,18 @@ func ConnectDB() (*sql.DB, error) {
 	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true", db_user, db_password, db_host, db_name))
 	if err != nil {
 		fmt.Println(err)
-		return nil, err
+		return err
 	}
-	return db, nil
+
+	// Настройка пула соединений
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(25)
+	db.SetConnMaxLifetime(0)
+
+	if err := db.Ping(); err != nil {
+		return fmt.Errorf("failed to ping db: %w", err)
+	}
+
+	DB = db
+	return nil
 }

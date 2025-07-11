@@ -1,77 +1,62 @@
 package shortener
 
 import (
+	"context"
+	"database/sql"
+	"errors"
 	"fmt"
-	"minq-backend/storage"
 	"time"
 )
 
-func SaveShortenUrl(data ShortenUrlAttributes) (ShortenUrlAttributes, error) {
-	db, err := storage.ConnectDB()
-	if err != nil {
-		return data, err
-	}
-	defer db.Close()
-	query := "INSERT INTO shorten_links (shorten_url, original_url, redirect_count, created_at) VALUES (?, ?, ?, ?)"
-
-	_, err = db.Exec(query, data.ShortenURL, data.OriginalURL, 0, time.Now())
-	if err != nil {
-		return data, fmt.Errorf("failed to insert shorten URL: %w", err)
-	}
-
-	return data, nil
+type ShortenRepository struct {
+	db *sql.DB
 }
 
-func GetUrlByOriginUrl(data *ShortenUrlAttributes) (*ShortenUrlAttributes, error) {
-	db, err := storage.ConnectDB()
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
+func NewRepository(db *sql.DB) *ShortenRepository {
+	return &ShortenRepository{db: db}
+}
 
-	query := "SELECT original_url, shorten_url, redirect_count FROM shorten_links WHERE original_url = ?"
-	rows, err := db.Query(query, data.OriginalURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get shorten URL: %w", err)
-	}
-	defer rows.Close()
+func (r *ShortenRepository) SaveShortenURL(ctx context.Context, data ShortenUrlAttributes) error {
+	query := `INSERT INTO shorten_links (shorten_url, original_url, redirect_count, created_at)
+	          VALUES (?, ?, ?, ?)`
 
-	if !rows.Next() {
+	_, err := r.db.ExecContext(ctx, query, data.ShortenURL, data.OriginalURL, 0, time.Now())
+	if err != nil {
+		return fmt.Errorf("failed to insert shorten URL: %w", err)
+	}
+
+	return nil
+}
+
+func (r *ShortenRepository) GetByOriginalURL(ctx context.Context, originalURL string) (*ShortenUrlAttributes, error) {
+	query := `SELECT shorten_url, redirect_count FROM shorten_links WHERE original_url = ?`
+
+	row := r.db.QueryRowContext(ctx, query, originalURL)
+	var data ShortenUrlAttributes
+	data.OriginalURL = originalURL
+
+	err := row.Scan(&data.ShortenURL, &data.RedirectCount)
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
-
-	var shortenUrl ShortenUrlAttributes
-	err = rows.Scan(&shortenUrl.OriginalURL, &shortenUrl.ShortenURL, &shortenUrl.RedirectCount)
-	if err != nil {
-		return nil, fmt.Errorf("failed to scan shorten URL: %w", err)
-	}
-
-	return &shortenUrl, nil
-}
-
-func GetUrlByShortenUrl(shortenUrl string) (*string, error) {
-	db, err := storage.ConnectDB()
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
-
-	query := "SELECT original_url FROM shorten_links WHERE shorten_url = ?"
-	rows, err := db.Query(query, shortenUrl)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get shorten URL: %w", err)
 	}
-	defer rows.Close()
 
-	if !rows.Next() {
-		return nil, fmt.Errorf("url not found")
+	return &data, nil
+}
+
+func (r *ShortenRepository) GetByShortenURL(ctx context.Context, shortenURL string) (*string, error) {
+	query := `SELECT original_url FROM shorten_links WHERE shorten_url = ?`
+
+	var originalURL string
+	err := r.db.QueryRowContext(ctx, query, shortenURL).Scan(&originalURL)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
 	}
-
-	var originalUrl string
-	err = rows.Scan(&originalUrl)
 	if err != nil {
-		return nil, fmt.Errorf("failed to scan shorten URL: %w", err)
+		return nil, fmt.Errorf("failed to get original URL: %w", err)
 	}
 
-	return &originalUrl, nil
+	return &originalURL, nil
 }
