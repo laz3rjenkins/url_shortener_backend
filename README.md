@@ -64,7 +64,7 @@ go run cmd/main.go
 
 API будет доступен по адресу: `http://localhost:8080`
 
-## 📬 Примеры API
+## Примеры API
 
 ### POST /api/shorten
 
